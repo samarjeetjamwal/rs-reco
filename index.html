@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Route Sale Reconciliation Tool – Dairy & Beverages</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 16px; background: #f5f7fa; color: #333; }
+        h1, h2 { color: #1a365d; text-align: center; margin-bottom: 0.8em; }
+        .container { max-width: 1380px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; font-size: 0.94em; margin: 16px 0; }
+        th, td { border: 1px solid #d1d9e6; padding: 8px 7px; text-align: right; }
+        th { background: #1e40af; color: white; text-align: center; position: sticky; top: 0; z-index: 2; }
+        tr:nth-child(even) { background: #f8fafc; }
+        input, select { width: 100%; padding: 5px; box-sizing: border-box; border: 1px solid #c3d0e0; border-radius: 4px; }
+        input[type=number] { text-align: right; }
+        .variance { font-weight: bold; }
+        .positive { color: #15803d; }
+        .negative { color: #b91c1c; }
+        .zero     { color: #4b5563; }
+        .net      { font-weight: bold; color: #065f46; }
+        .cash-col { background: #fefce8; }
+        .mpesa-col{ background: #ecfdf5; }
+        button { padding: 9px 16px; margin: 4px 6px; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; }
+        .btn-add    { background: #2563eb; color: white; }
+        .btn-recon  { background: #059669; color: white; }
+        .btn-print  { background: #d97706; color: white; }
+        .btn-export { background: #7c3aed; color: white; }
+        .btn-copy   { background: #6b7280; color: white; }
+        #result, .payment-section { margin-top: 24px; padding: 16px; background: #f1f5f9; border-radius: 8px; border: 1px solid #e2e8f0; }
+        .section { margin-bottom: 28px; padding-bottom: 16px; border-bottom: 1px solid #e5e7eb; }
+        .totals { font-size: 1.08em; font-weight: 600; margin: 12px 0; line-height: 1.6; padding: 10px; background: #e5e7eb; border-radius: 6px; }
+        .live-liters { font-weight: bold; color: #1d4ed8; }
+        .footer-note { text-align: center; font-size: 0.85em; color: #6b7280; margin: 32px 0 16px; }
+        .export-info { font-size: 0.9em; color: #475569; margin: 8px 0; text-align: center; }
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white; margin: 8mm; }
+            .container { box-shadow: none; padding: 0; max-width: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Route Sale Reconciliation Tool</h1>
+        <p style="text-align:center; font-size:1.05em;">
+            Dairy & Beverages • Date: <strong id="currentDate"></strong>
+        </p>
+<p style="text-align: center; font-size: 0.9em; color: #777; margin-top: 40px;">@ 2026. All rights reserved. Designed and Developed by Samar Jeet Jamwal.</p>
+        <!-- Confirmation -->
+        <div class="section no-print">
+            <h2>Confirmation</h2>
+            <label>Name: <input type="text" id="name" placeholder="Salesman / Supervisor" style="width:260px;"></label><br><br>
+            <label><input type="checkbox" id="confirmed"> All data verified</label>
+        </div>
+
+        <!-- Stock & Returns Table -->
+        <div class="section">
+            <h2>Stock & Returns Reconciliation</h2>
+            <table id="productTable">
+                <thead>
+                    <tr>
+                        <th style="text-align:left; min-width:160px;">Product / SKU</th>
+                        <th>Pack</th>
+                        <th>Dispatched</th>
+                        <th>Sold</th>
+                        <th>Exp. Returns</th>
+                        <th>Phys. Returns</th>
+                        <th>Returns Var</th>
+                        <th>Unit Price</th>
+                        <th>Disc/unit</th>
+                        <th>Net Amount</th>
+                        <th>Liters Sold</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><input type="text" value="Fresh Milk 300ml" placeholder="e.g. Mala 500ml"></td>
+                        <td><select class="pack" onchange="updateRow(this)">
+                            <option>100ml</option><option>500ml</option><option>1000ml</option>
+                            <option selected>300ml</option><option>1500ml</option><option>2000ml</option>
+                        </select></td>
+                        <td><input type="number" class="dispatch" min="0" value="10" oninput="updateRow(this)"></td>
+                        <td><input type="number" class="sold" min="0" value="5" oninput="updateRow(this)"></td>
+                        <td class="exp-returns">0</td>
+                        <td><input type="number" class="phys-returns" min="0" value="3" oninput="updateRow(this)"></td>
+                        <td class="ret-var">0</td>
+                        <td><input type="number" class="price" min="0" step="0.01" value="48.00" oninput="updateRow(this)"></td>
+                        <td><input type="number" class="disc-per" min="0" step="0.01" value="0.00" oninput="updateRow(this)"></td>
+                        <td class="net">0.00</td>
+                        <td class="live-liters">0.00 L</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="totals" id="stockTotals">
+                <div>Total Liters Sold: <span id="totalLiters">0.00</span> L</div>
+                <div>Total Net Value: KSh <span id="totalValue">0.00</span></div>
+            </div>
+
+            <div class="no-print" style="text-align:center; margin:24px 0;">
+                <button class="btn-add" onclick="addRow()">+ Add Product</button>
+                <button class="btn-recon" onclick="reconcileAll()">Reconcile & Summary</button>
+            </div>
+        </div>
+
+        <!-- Lump-sum Payment Collection -->
+        <div class="section payment-section">
+            <h2>Payments & Collection (Total Route)</h2>
+            <table id="paymentTable">
+                <thead>
+                    <tr>
+                        <th>Total Expected Collection</th>
+                        <th>Cash Received (KSh)</th>
+                        <th>M-Pesa Received (KSh)</th>
+                        <th>M-Pesa Ref / Note</th>
+                        <th>Total Actual Received</th>
+                        <th>Collection Variance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="net total-expected">0.00</td>
+                        <td class="cash-col"><input type="number" id="totalCash" min="0" step="0.01" value="0.00" oninput="updateCollection()"></td>
+                        <td class="mpesa-col"><input type="number" id="totalMpesa" min="0" step="0.01" value="0.00" oninput="updateCollection()"></td>
+                        <td><input type="text" id="mpesaRef" placeholder="Ref / Till no / Remarks" oninput="updateCollection()"></td>
+                        <td class="amount total-actual">0.00</td>
+                        <td class="coll-var variance">0.00</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="result"></div>
+
+        <div class="no-print" style="text-align:center; margin:32px 0;">
+            <button class="btn-print" onclick="window.print()">Print / Save as PDF</button>
+            <button class="btn-export" onclick="exportAsHTML()">Export as HTML File</button>
+            <button class="btn-copy" onclick="copyHTMLToClipboard()">Copy HTML to Clipboard</button>
+        </div>
+
+        <div class="export-info no-print">
+            Tip: For best PDF — use Chrome → Print → Save as PDF → Margins: None, Scale: 100%
+        </div>
+
+        <div class="footer-note">
+            © 2026 • Designed & Developed by Samar Jeet
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-KE', {
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+        });
+
+        const LITERS_MAP = {
+            '100ml': 0.1, '300ml': 0.3, '500ml': 0.5,
+            '1000ml': 1.0, '1500ml': 1.5, '2000ml': 2.0
+        };
+
+        function getLiters(pack) {
+            return LITERS_MAP[pack] || 0;
+        }
+
+        function updateRow(el) {
+            const row = el.closest('tr');
+            if (!row) return;
+
+            const dispatch   = Number(row.querySelector('.dispatch').value)   || 0;
+            const sold       = Number(row.querySelector('.sold').value)       || 0;
+            const physRet    = Number(row.querySelector('.phys-returns').value) || 0;
+            const price      = Number(row.querySelector('.price').value)      || 0;
+            const disc       = Number(row.querySelector('.disc-per').value)   || 0;
+
+            const expReturns = dispatch - sold;
+            const retVar     = expReturns - physRet;
+            const netUnit    = price - disc;
+            const netAmt     = sold * netUnit;
+            const liters     = sold * getLiters(row.querySelector('.pack').value);
+
+            row.querySelector('.exp-returns').textContent = expReturns;
+            row.querySelector('.ret-var').textContent     = retVar;
+            row.querySelector('.ret-var').className       = 'ret-var variance ' +
+                (retVar > 0 ? 'negative' : retVar < 0 ? 'positive' : 'zero');
+
+            row.querySelector('.net').textContent         = netAmt.toFixed(2);
+            row.querySelector('.live-liters').textContent = liters.toFixed(2) + ' L';
+
+            updateTotals();
+            updateCollection();
+        }
+
+        function updateTotals() {
+            let totalLiters = 0;
+            let totalValue  = 0;
+
+            document.querySelectorAll('#productTable tbody tr').forEach(row => {
+                totalLiters += Number(row.querySelector('.live-liters').textContent.replace(' L','')) || 0;
+                totalValue  += Number(row.querySelector('.net').textContent) || 0;
+            });
+
+            document.getElementById('totalLiters').textContent = totalLiters.toFixed(2);
+            document.getElementById('totalValue').textContent  = totalValue.toFixed(2);
+            document.querySelector('.total-expected').textContent = totalValue.toFixed(2);
+
+            updateCollection();
+        }
+
+        function updateCollection() {
+            const expected = Number(document.querySelector('.total-expected').textContent) || 0;
+            const cash     = Number(document.getElementById('totalCash').value)   || 0;
+            const mpesa    = Number(document.getElementById('totalMpesa').value)  || 0;
+            const actual   = cash + mpesa;
+            const variance = expected - actual;
+
+            document.querySelector('.total-actual').textContent = actual.toFixed(2);
+            const varCell = document.querySelector('.coll-var');
+            varCell.textContent = variance.toFixed(2);
+            varCell.className = 'coll-var variance ' +
+                (variance > 0 ? 'negative' : variance < 0 ? 'positive' : 'zero');
+        }
+
+        function addRow() {
+            const tbody = document.getElementById('productTable').tBodies[0];
+            const row = tbody.insertRow();
+            row.innerHTML = `
+                <td><input type="text" placeholder="Product / SKU"></td>
+                <td><select class="pack" onchange="updateRow(this)">
+                    <option>100ml</option><option>500ml</option><option>1000ml</option>
+                    <option>300ml</option><option>1500ml</option><option>2000ml</option>
+                </select></td>
+                <td><input type="number" class="dispatch" min="0" oninput="updateRow(this)"></td>
+                <td><input type="number" class="sold" min="0" oninput="updateRow(this)"></td>
+                <td class="exp-returns">0</td>
+                <td><input type="number" class="phys-returns" min="0" oninput="updateRow(this)"></td>
+                <td class="ret-var">0</td>
+                <td><input type="number" class="price" min="0" step="0.01" oninput="updateRow(this)"></td>
+                <td><input type="number" class="disc-per" min="0" step="0.01" value="0.00" oninput="updateRow(this)"></td>
+                <td class="net">0.00</td>
+                <td class="live-liters">0.00 L</td>
+            `;
+            row.querySelectorAll('input, select').forEach(el => {
+                el.addEventListener('input', () => updateRow(el));
+                el.addEventListener('change', () => updateRow(el));
+            });
+        }
+
+        function reconcileAll() {
+            let g = {
+                dispatch:0, sold:0, expRet:0, physRet:0, retVar:0,
+                liters:0, net:0, cash:0, mpesa:0, actual:0, collVar:0
+            };
+            const lines = [];
+
+            document.querySelectorAll('#productTable tbody tr').forEach((row, i) => {
+                updateRow(row.querySelector('.pack'));
+
+                const prod      = row.cells[0].querySelector('input').value.trim() || `Item ${i+1}`;
+                const pack      = row.querySelector('.pack').value;
+                const dispatch  = Number(row.querySelector('.dispatch').value)   || 0;
+                const sold      = Number(row.querySelector('.sold').value)       || 0;
+                const expRet    = dispatch - sold;
+                const physRet   = Number(row.querySelector('.phys-returns').value) || 0;
+                const retVar    = expRet - physRet;
+                const netAmt    = Number(row.querySelector('.net').textContent) || 0;
+                const liters    = Number(row.querySelector('.live-liters').textContent.replace(' L','')) || 0;
+
+                g.dispatch  += dispatch;
+                g.sold      += sold;
+                g.expRet    += expRet;
+                g.physRet   += physRet;
+                g.retVar    += retVar;
+                g.liters    += liters;
+                g.net       += netAmt;
+
+                const vClass = retVar > 0 ? 'negative' : retVar < 0 ? 'positive' : 'zero';
+
+                lines.push(`
+                    <tr>
+                        <td style="text-align:left">${prod} (${pack})</td>
+                        <td>${dispatch}</td>
+                        <td>${sold}</td>
+                        <td>${expRet}</td>
+                        <td>${physRet}</td>
+                        <td class="variance ${vClass}">${retVar}</td>
+                        <td class="net">${netAmt.toFixed(2)}</td>
+                        <td>${liters.toFixed(2)}</td>
+                    </tr>
+                `);
+            });
+
+            // Payment values
+            g.cash   = Number(document.getElementById('totalCash').value)  || 0;
+            g.mpesa  = Number(document.getElementById('totalMpesa').value) || 0;
+            g.actual = g.cash + g.mpesa;
+            g.collVar = g.net - g.actual;
+
+            const confirmed = document.getElementById('confirmed').checked;
+            const who = document.getElementById('name').value.trim() || 'User';
+
+            document.getElementById('result').innerHTML = `
+                <h2>Reconciliation Summary</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="text-align:left">Product</th>
+                            <th>Disp</th><th>Sold</th><th>Exp Ret</th>
+                            <th>Phys Ret</th><th>Ret Var</th><th>Net (KSh)</th><th>Liters</th>
+                        </tr>
+                    </thead>
+                    <tbody>${lines.join('')}</tbody>
+                    <tfoot style="background:#e5e7eb; font-weight:bold;">
+                        <tr>
+                            <td style="text-align:left">GRAND TOTAL</td>
+                            <td>${g.dispatch}</td>
+                            <td>${g.sold}</td>
+                            <td>${g.expRet}</td>
+                            <td>${g.physRet}</td>
+                            <td class="variance ${g.retVar>0?'negative':g.retVar<0?'positive':'zero'}">${g.retVar}</td>
+                            <td class="net">${g.net.toFixed(2)}</td>
+                            <td>${g.liters.toFixed(2)}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+
+                <div class="totals">
+                    <div>Returns Variance: <span class="${g.retVar>0?'negative':g.retVar<0?'positive':'zero'}">
+                        ${g.retVar} pcs</span></div>
+                    <div>Collection Variance: <span class="${g.collVar>0?'negative':g.collVar<0?'positive':'zero'}">
+                        KSh ${g.collVar.toFixed(2)}</span></div>
+                    <div><strong>Net Expected: KSh ${g.net.toFixed(2)}</strong></div>
+                    <div>Actual Received: KSh ${g.actual.toFixed(2)}</div>
+                    <div>Status: ${confirmed ?
+                        `<span style="color:#059669;">Confirmed by ${who}</span>` :
+                        `<span style="color:#b91c1c;">Not confirmed</span>`}
+                    </div>
+                </div>
+            `;
+        }
+
+        // ──────────────────────────────────────
+        // Export / Save as HTML
+        function exportAsHTML() {
+            const content = document.documentElement.outerHTML;
+            const blob = new Blob([content], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Route_Reconciliation_${new Date().toISOString().slice(0,10)}.html`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // ──────────────────────────────────────
+        // Copy entire page HTML to clipboard
+        function copyHTMLToClipboard() {
+            const content = document.documentElement.outerHTML;
+            navigator.clipboard.writeText(content).then(() => {
+                alert('HTML copied to clipboard!\n\nPaste into a text editor and save as .html file to open in browser.');
+            }).catch(err => {
+                alert('Copy failed: ' + err);
+            });
+        }
+
+        // Initial update
+        window.addEventListener('load', () => {
+            document.querySelectorAll('#productTable tr').forEach(r => updateRow(r.querySelector('.pack') || r));
+        });
+    </script>
+</body>
+</html>
